@@ -1,12 +1,51 @@
-import { db } from "../../../data/db";
+import { useEffect, useState } from 'react';
 import { Banner } from "@douyinfe/semi-ui";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useTranslation } from "react-i18next";
 import { databases } from "../../../data/databases";
+import { db } from "../../../data/db";
+import { supabase } from '../../Workspace';
 
 export default function Open({ selectedDiagramId, setSelectedDiagramId }) {
-  const diagrams = useLiveQuery(() => db.diagrams.toArray());
+  const [allDiagrams, setAllDiagrams] = useState([]);
+  const localDiagrams = useLiveQuery(() => db.diagrams.toArray());
   const { t } = useTranslation();
+
+  useEffect(() => {
+    async function loadAllDiagrams() {
+      try {
+        // Get Supabase diagrams
+        const { data: supaDiagrams, error } = await supabase
+          .from('diagrams')
+          .select('*')
+          .order('updated_at', { ascending: false });
+
+        if (error) throw error;
+
+        // Start with local diagrams
+        const mergedDiagrams = [...(localDiagrams || [])];
+        
+        // Add Supabase diagrams if they're not in local
+        supaDiagrams?.forEach(remoteDiagram => {
+          const localExists = mergedDiagrams.find(d => d.id === remoteDiagram.local_id);
+          if (!localExists) {
+            mergedDiagrams.push({
+              id: remoteDiagram.local_id,
+              name: remoteDiagram.name,
+              ...remoteDiagram.content,
+              lastModified: new Date(remoteDiagram.updated_at)
+            });
+          }
+        });
+
+        setAllDiagrams(mergedDiagrams);
+      } catch (error) {
+        console.error('Error loading diagrams:', error);
+      }
+    }
+
+    loadAllDiagrams();
+  }, [localDiagrams]);
 
   const getDiagramSize = (d) => {
     const size = JSON.stringify(d).length;
@@ -19,9 +58,10 @@ export default function Open({ selectedDiagramId, setSelectedDiagramId }) {
 
     return sizeStr;
   };
+
   return (
     <div>
-      {diagrams?.length === 0 ? (
+      {allDiagrams?.length === 0 ? (
         <Banner
           fullMode={false}
           type="info"
@@ -42,7 +82,7 @@ export default function Open({ selectedDiagramId, setSelectedDiagramId }) {
               </tr>
             </thead>
             <tbody>
-              {diagrams?.map((d) => {
+              {allDiagrams?.map((d) => {
                 return (
                   <tr
                     key={d.id}
@@ -66,7 +106,7 @@ export default function Open({ selectedDiagramId, setSelectedDiagramId }) {
                     </td>
                     <td className="py-1">{getDiagramSize(d)}</td>
                     <td className="py-1">
-                      {databases[d.database].name ?? "Generic"}
+                      {databases[d.database]?.name ?? "Generic"}
                     </td>
                   </tr>
                 );

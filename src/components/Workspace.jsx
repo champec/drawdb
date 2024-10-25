@@ -38,12 +38,11 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('Missing Supabase environment variables');
 }
 
-const supabase = createClient(
+export const supabase = createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 );
 
-console.log(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 export const IdContext = createContext({ gistId: "" });
 
