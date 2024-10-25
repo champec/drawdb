@@ -656,7 +656,7 @@ export default function WorkSpace() {
     } else {
       const name = window.name.split(" ");
       const op = name[0];
-      const id = parseInt(name[1]);
+      const id = name[1];
       switch (op) {
         case "d": {
           loadDiagram(id);
