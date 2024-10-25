@@ -5,6 +5,7 @@ import { CanvasContextProvider } from "../context/CanvasContext";
 import SidePanel from "./EditorSidePanel/SidePanel";
 import { DB, State } from "../data/constants";
 import { db } from "../data/db";
+import { v4 as uuidv4 } from 'uuid';
 import {
   useLayout,
   useSettings,
@@ -181,7 +182,7 @@ export default function WorkSpace() {
   //   gistId,
   //   loadedFromGistId,
   // ]);
-
+  
   const save = useCallback(async () => {
     const name = window.name.split(" ");
     const op = name[0];
@@ -191,53 +192,56 @@ export default function WorkSpace() {
       searchParams.delete("shareId");
       setSearchParams(searchParams);
       
-      // Prepare diagram data
-      const diagramData = {
-        database: database,
-        name: title,
-        lastModified: new Date(),
-        tables: tables,
-        references: relationships,
-        notes: notes,
-        areas: areas,
-        todos: tasks,
-        pan: transform.pan,
-        zoom: transform.zoom,
-        loadedFromGistId: loadedFromGistId,
-        ...(databases[database].hasEnums && { enums: enums }),
-        ...(databases[database].hasTypes && { types: types }),
-      };
-  
       try {
-        let localId;
-        
-        // Save/Update in Dexie
+        // Prepare diagram data
+        const diagramData = {
+          database: database,
+          name: title,
+          lastModified: new Date(),
+          tables: tables,
+          references: relationships,
+          notes: notes,
+          areas: areas,
+          todos: tasks,
+          pan: transform.pan,
+          zoom: transform.zoom,
+          loadedFromGistId: loadedFromGistId,
+          ...(databases[database].hasEnums && { enums: enums }),
+          ...(databases[database].hasTypes && { types: types }),
+        };
+  
+        // For new diagrams, generate UUID
+        const diagramId = id === 0 ? uuidv4() : id;
+  
+        // Save to Dexie
         if (id === 0 || window.name === "" || window.name.split(" ")[0] === "lt") {
-          localId = await db.diagrams.add({
+          await db.diagrams.add({
+            id: diagramId,
             ...diagramData,
             gistId: gistId ?? "",
           });
-          setId(localId);
-          window.name = `d ${localId}`;
+          setId(diagramId);
+          window.name = `d ${diagramId}`;
         } else {
-          localId = id;
           await db.diagrams.update(id, {
             ...diagramData,
             gistId: gistId ?? "",
           });
         }
   
-        // Save/Update in Supabase
-        const { error } = await supabase
+        // Save to Supabase
+        const { error: supabaseError } = await supabase
           .from('diagrams')
           .upsert({
-            local_id: localId,
+            local_id: diagramId,
             name: title,
             content: diagramData,
             updated_at: new Date().toISOString(),
-          }, {onConflict:'local_id'});
+          }, {
+            onConflict: 'local_id'
+          });
   
-        if (error) throw error;
+        if (supabaseError) throw supabaseError;
   
         setSaveState(State.SAVED);
         setLastSaved(new Date().toLocaleString());

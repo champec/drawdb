@@ -40,7 +40,8 @@
     "react-router-dom": "^6.21.0",
     "react-tweet": "^3.2.1",
     "url": "^0.11.1",
-    "usehooks-ts": "^3.1.0"
+    "usehooks-ts": "^3.1.0",
+    "uuid": "^10.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
