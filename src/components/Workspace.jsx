@@ -25,6 +25,24 @@ import { databases } from "../data/databases";
 import { isRtl } from "../i18n/utils/rtl";
 import { useSearchParams } from "react-router-dom";
 import { octokit } from "../data/octokit";
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_KEY;
+
+
+
+// Add validation
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('Missing Supabase environment variables');
+}
+
+const supabase = createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
+
+console.log(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 export const IdContext = createContext({ gistId: "" });
 
@@ -64,65 +82,172 @@ export default function WorkSpace() {
     if (w > 340) setWidth(w);
   };
 
+  // const save = useCallback(async () => {
+  //   const name = window.name.split(" ");
+  //   const op = name[0];
+  //   const saveAsDiagram = window.name === "" || op === "d" || op === "lt";
+
+  //   if (saveAsDiagram) {
+  //     searchParams.delete("shareId");
+  //     setSearchParams(searchParams);
+  //     if (
+  //       (id === 0 && window.name === "") ||
+  //       window.name.split(" ")[0] === "lt"
+  //     ) {
+  //       await db.diagrams
+  //         .add({
+  //           database: database,
+  //           name: title,
+  //           gistId: gistId ?? "",
+  //           lastModified: new Date(),
+  //           tables: tables,
+  //           references: relationships,
+  //           notes: notes,
+  //           areas: areas,
+  //           todos: tasks,
+  //           pan: transform.pan,
+  //           zoom: transform.zoom,
+  //           loadedFromGistId: loadedFromGistId,
+  //           ...(databases[database].hasEnums && { enums: enums }),
+  //           ...(databases[database].hasTypes && { types: types }),
+  //         })
+  //         .then((id) => {
+  //           setId(id);
+  //           window.name = `d ${id}`;
+  //           setSaveState(State.SAVED);
+  //           setLastSaved(new Date().toLocaleString());
+  //         });
+  //     } else {
+  //       await db.diagrams
+  //         .update(id, {
+  //           database: database,
+  //           name: title,
+  //           lastModified: new Date(),
+  //           tables: tables,
+  //           references: relationships,
+  //           notes: notes,
+  //           areas: areas,
+  //           todos: tasks,
+  //           gistId: gistId ?? "",
+  //           pan: transform.pan,
+  //           zoom: transform.zoom,
+  //           loadedFromGistId: loadedFromGistId,
+  //           ...(databases[database].hasEnums && { enums: enums }),
+  //           ...(databases[database].hasTypes && { types: types }),
+  //         })
+  //         .then(() => {
+  //           setSaveState(State.SAVED);
+  //           setLastSaved(new Date().toLocaleString());
+  //         });
+  //     }
+  //   } else {
+  //     await db.templates
+  //       .update(id, {
+  //         database: database,
+  //         title: title,
+  //         tables: tables,
+  //         relationships: relationships,
+  //         notes: notes,
+  //         subjectAreas: areas,
+  //         todos: tasks,
+  //         pan: transform.pan,
+  //         zoom: transform.zoom,
+  //         ...(databases[database].hasEnums && { enums: enums }),
+  //         ...(databases[database].hasTypes && { types: types }),
+  //       })
+  //       .then(() => {
+  //         setSaveState(State.SAVED);
+  //         setLastSaved(new Date().toLocaleString());
+  //       })
+  //       .catch(() => {
+  //         setSaveState(State.ERROR);
+  //       });
+  //   }
+  // }, [
+  //   searchParams,
+  //   setSearchParams,
+  //   tables,
+  //   relationships,
+  //   notes,
+  //   areas,
+  //   types,
+  //   title,
+  //   id,
+  //   tasks,
+  //   transform,
+  //   setSaveState,
+  //   database,
+  //   enums,
+  //   gistId,
+  //   loadedFromGistId,
+  // ]);
+
   const save = useCallback(async () => {
     const name = window.name.split(" ");
     const op = name[0];
     const saveAsDiagram = window.name === "" || op === "d" || op === "lt";
-
+  
     if (saveAsDiagram) {
       searchParams.delete("shareId");
       setSearchParams(searchParams);
-      if (
-        (id === 0 && window.name === "") ||
-        window.name.split(" ")[0] === "lt"
-      ) {
-        await db.diagrams
-          .add({
-            database: database,
-            name: title,
+      
+      // Prepare diagram data
+      const diagramData = {
+        database: database,
+        name: title,
+        lastModified: new Date(),
+        tables: tables,
+        references: relationships,
+        notes: notes,
+        areas: areas,
+        todos: tasks,
+        pan: transform.pan,
+        zoom: transform.zoom,
+        loadedFromGistId: loadedFromGistId,
+        ...(databases[database].hasEnums && { enums: enums }),
+        ...(databases[database].hasTypes && { types: types }),
+      };
+  
+      try {
+        let localId;
+        
+        // Save/Update in Dexie
+        if (id === 0 || window.name === "" || window.name.split(" ")[0] === "lt") {
+          localId = await db.diagrams.add({
+            ...diagramData,
             gistId: gistId ?? "",
-            lastModified: new Date(),
-            tables: tables,
-            references: relationships,
-            notes: notes,
-            areas: areas,
-            todos: tasks,
-            pan: transform.pan,
-            zoom: transform.zoom,
-            loadedFromGistId: loadedFromGistId,
-            ...(databases[database].hasEnums && { enums: enums }),
-            ...(databases[database].hasTypes && { types: types }),
-          })
-          .then((id) => {
-            setId(id);
-            window.name = `d ${id}`;
-            setSaveState(State.SAVED);
-            setLastSaved(new Date().toLocaleString());
           });
-      } else {
-        await db.diagrams
-          .update(id, {
-            database: database,
-            name: title,
-            lastModified: new Date(),
-            tables: tables,
-            references: relationships,
-            notes: notes,
-            areas: areas,
-            todos: tasks,
+          setId(localId);
+          window.name = `d ${localId}`;
+        } else {
+          localId = id;
+          await db.diagrams.update(id, {
+            ...diagramData,
             gistId: gistId ?? "",
-            pan: transform.pan,
-            zoom: transform.zoom,
-            loadedFromGistId: loadedFromGistId,
-            ...(databases[database].hasEnums && { enums: enums }),
-            ...(databases[database].hasTypes && { types: types }),
-          })
-          .then(() => {
-            setSaveState(State.SAVED);
-            setLastSaved(new Date().toLocaleString());
           });
+        }
+  
+        // Save/Update in Supabase
+        const { error } = await supabase
+          .from('diagrams')
+          .upsert({
+            local_id: localId,
+            name: title,
+            content: diagramData,
+            updated_at: new Date().toISOString(),
+          }, {onConflict:'local_id'});
+  
+        if (error) throw error;
+  
+        setSaveState(State.SAVED);
+        setLastSaved(new Date().toLocaleString());
+  
+      } catch (error) {
+        console.error('Error saving diagram:', error);
+        setSaveState(State.ERROR);
       }
     } else {
+      // Handle template saving
       await db.templates
         .update(id, {
           database: database,
@@ -164,86 +289,324 @@ export default function WorkSpace() {
     loadedFromGistId,
   ]);
 
+  // const load = useCallback(async () => {
+  //   const loadLatestDiagram = async () => {
+  //     await db.diagrams
+  //       .orderBy("lastModified")
+  //       .last()
+  //       .then((d) => {
+  //         if (d) {
+  //           if (d.database) {
+  //             setDatabase(d.database);
+  //           } else {
+  //             setDatabase(DB.GENERIC);
+  //           }
+  //           setId(d.id);
+  //           setGistId(d.gistId);
+  //           setLoadedFromGistId(d.loadedFromGistId);
+  //           setTitle(d.name);
+  //           setTables(d.tables);
+  //           setRelationships(d.references);
+  //           setNotes(d.notes);
+  //           setAreas(d.areas);
+  //           setTasks(d.todos ?? []);
+  //           setTransform({ pan: d.pan, zoom: d.zoom });
+  //           if (databases[database].hasTypes) {
+  //             setTypes(d.types ?? []);
+  //           }
+  //           if (databases[database].hasEnums) {
+  //             setEnums(d.enums ?? []);
+  //           }
+  //           window.name = `d ${d.id}`;
+  //         } else {
+  //           window.name = "";
+  //           if (selectedDb === "") setShowSelectDbModal(true);
+  //         }
+  //       })
+  //       .catch((error) => {
+  //         console.log(error);
+  //       });
+  //   };
+
+  //   const loadDiagram = async (id) => {
+  //     await db.diagrams
+  //       .get(id)
+  //       .then((diagram) => {
+  //         if (diagram) {
+  //           if (diagram.database) {
+  //             setDatabase(diagram.database);
+  //           } else {
+  //             setDatabase(DB.GENERIC);
+  //           }
+  //           setId(diagram.id);
+  //           setGistId(diagram.gistId);
+  //           setLoadedFromGistId(diagram.loadedFromGistId);
+  //           setTitle(diagram.name);
+  //           setTables(diagram.tables);
+  //           setRelationships(diagram.references);
+  //           setAreas(diagram.areas);
+  //           setNotes(diagram.notes);
+  //           setTasks(diagram.todos ?? []);
+  //           setTransform({
+  //             pan: diagram.pan,
+  //             zoom: diagram.zoom,
+  //           });
+  //           setUndoStack([]);
+  //           setRedoStack([]);
+  //           if (databases[database].hasTypes) {
+  //             setTypes(diagram.types ?? []);
+  //           }
+  //           if (databases[database].hasEnums) {
+  //             setEnums(diagram.enums ?? []);
+  //           }
+  //           window.name = `d ${diagram.id}`;
+  //         } else {
+  //           window.name = "";
+  //         }
+  //       })
+  //       .catch((error) => {
+  //         console.log(error);
+  //       });
+  //   };
+
+  //   const loadTemplate = async (id) => {
+  //     await db.templates
+  //       .get(id)
+  //       .then((diagram) => {
+  //         if (diagram) {
+  //           if (diagram.database) {
+  //             setDatabase(diagram.database);
+  //           } else {
+  //             setDatabase(DB.GENERIC);
+  //           }
+  //           setId(diagram.id);
+  //           setTitle(diagram.title);
+  //           setTables(diagram.tables);
+  //           setRelationships(diagram.relationships);
+  //           setAreas(diagram.subjectAreas);
+  //           setTasks(diagram.todos ?? []);
+  //           setNotes(diagram.notes);
+  //           setTransform({
+  //             zoom: 1,
+  //             pan: { x: 0, y: 0 },
+  //           });
+  //           setUndoStack([]);
+  //           setRedoStack([]);
+  //           if (databases[database].hasTypes) {
+  //             setTypes(diagram.types ?? []);
+  //           }
+  //           if (databases[database].hasEnums) {
+  //             setEnums(diagram.enums ?? []);
+  //           }
+  //         } else {
+  //           if (selectedDb === "") setShowSelectDbModal(true);
+  //         }
+  //       })
+  //       .catch((error) => {
+  //         console.log(error);
+  //         if (selectedDb === "") setShowSelectDbModal(true);
+  //       });
+  //   };
+
+  //   if (window.name === "") {
+  //     loadLatestDiagram();
+  //   } else {
+  //     const name = window.name.split(" ");
+  //     const op = name[0];
+  //     const id = parseInt(name[1]);
+  //     switch (op) {
+  //       case "d": {
+  //         loadDiagram(id);
+  //         break;
+  //       }
+  //       case "t":
+  //       case "lt": {
+  //         loadTemplate(id);
+  //         break;
+  //       }
+  //       default:
+  //         break;
+  //     }
+  //   }
+  // }, [
+  //   setTransform,
+  //   setRedoStack,
+  //   setUndoStack,
+  //   setRelationships,
+  //   setTables,
+  //   setAreas,
+  //   setNotes,
+  //   setTypes,
+  //   setTasks,
+  //   setDatabase,
+  //   database,
+  //   setEnums,
+  //   selectedDb,
+  // ]);
+
   const load = useCallback(async () => {
     const loadLatestDiagram = async () => {
-      await db.diagrams
-        .orderBy("lastModified")
-        .last()
-        .then((d) => {
-          if (d) {
-            if (d.database) {
-              setDatabase(d.database);
-            } else {
-              setDatabase(DB.GENERIC);
-            }
-            setId(d.id);
-            setGistId(d.gistId);
-            setLoadedFromGistId(d.loadedFromGistId);
-            setTitle(d.name);
-            setTables(d.tables);
-            setRelationships(d.references);
-            setNotes(d.notes);
-            setAreas(d.areas);
-            setTasks(d.todos ?? []);
-            setTransform({ pan: d.pan, zoom: d.zoom });
-            if (databases[database].hasTypes) {
-              setTypes(d.types ?? []);
-            }
-            if (databases[database].hasEnums) {
-              setEnums(d.enums ?? []);
-            }
-            window.name = `d ${d.id}`;
-          } else {
-            window.name = "";
-            if (selectedDb === "") setShowSelectDbModal(true);
+      try {
+        // Try to get latest from Supabase first
+        const { data: supabaseDiagrams, error } = await supabase
+          .from('diagrams')
+          .select('*')
+          .order('updated_at', { ascending: false })
+          .limit(1);
+  
+        if (!error && supabaseDiagrams?.length > 0) {
+          const remoteDiagram = supabaseDiagrams[0];
+          
+          // Update local storage
+          await db.diagrams.put({
+            id: remoteDiagram.local_id,
+            ...remoteDiagram.content,
+            lastModified: new Date(remoteDiagram.updated_at)
+          });
+  
+          // Load diagram data
+          setDatabase(remoteDiagram.content.database || DB.GENERIC);
+          setId(remoteDiagram.local_id);
+          setGistId(remoteDiagram.content.gistId || "");
+          setLoadedFromGistId(remoteDiagram.content.loadedFromGistId || "");
+          setTitle(remoteDiagram.name);
+          setTables(remoteDiagram.content.tables);
+          setRelationships(remoteDiagram.content.references);
+          setNotes(remoteDiagram.content.notes);
+          setAreas(remoteDiagram.content.areas);
+          setTasks(remoteDiagram.content.todos ?? []);
+          setTransform({ 
+            pan: remoteDiagram.content.pan, 
+            zoom: remoteDiagram.content.zoom 
+          });
+          
+          if (databases[remoteDiagram.content.database]?.hasTypes) {
+            setTypes(remoteDiagram.content.types ?? []);
           }
-        })
-        .catch((error) => {
-          console.log(error);
-        });
+          if (databases[remoteDiagram.content.database]?.hasEnums) {
+            setEnums(remoteDiagram.content.enums ?? []);
+          }
+          
+          window.name = `d ${remoteDiagram.local_id}`;
+          return;
+        }
+  
+        // Fallback to local storage
+        await db.diagrams.orderBy("lastModified").last()
+          .then((d) => {
+            if (d) {
+              if (d.database) {
+                setDatabase(d.database);
+              } else {
+                setDatabase(DB.GENERIC);
+              }
+              setId(d.id);
+              setGistId(d.gistId);
+              setLoadedFromGistId(d.loadedFromGistId);
+              setTitle(d.name);
+              setTables(d.tables);
+              setRelationships(d.references);
+              setNotes(d.notes);
+              setAreas(d.areas);
+              setTasks(d.todos ?? []);
+              setTransform({ pan: d.pan, zoom: d.zoom });
+              if (databases[database].hasTypes) {
+                setTypes(d.types ?? []);
+              }
+              if (databases[database].hasEnums) {
+                setEnums(d.enums ?? []);
+              }
+              window.name = `d ${d.id}`;
+            } else {
+              window.name = "";
+              if (selectedDb === "") setShowSelectDbModal(true);
+            }
+          });
+  
+      } catch (error) {
+        console.error('Error loading latest diagram:', error);
+        setSaveState(State.FAILED_TO_LOAD);
+      }
     };
-
+  
     const loadDiagram = async (id) => {
-      await db.diagrams
-        .get(id)
-        .then((diagram) => {
-          if (diagram) {
-            if (diagram.database) {
-              setDatabase(diagram.database);
-            } else {
-              setDatabase(DB.GENERIC);
-            }
-            setId(diagram.id);
-            setGistId(diagram.gistId);
-            setLoadedFromGistId(diagram.loadedFromGistId);
-            setTitle(diagram.name);
-            setTables(diagram.tables);
-            setRelationships(diagram.references);
-            setAreas(diagram.areas);
-            setNotes(diagram.notes);
-            setTasks(diagram.todos ?? []);
-            setTransform({
-              pan: diagram.pan,
-              zoom: diagram.zoom,
-            });
-            setUndoStack([]);
-            setRedoStack([]);
-            if (databases[database].hasTypes) {
-              setTypes(diagram.types ?? []);
-            }
-            if (databases[database].hasEnums) {
-              setEnums(diagram.enums ?? []);
-            }
-            window.name = `d ${diagram.id}`;
-          } else {
-            window.name = "";
+      try {
+        // Try Supabase first
+        const { data: remoteDiagram, error } = await supabase
+          .from('diagrams')
+          .select('*')
+          .eq('local_id', id)
+          .single();
+  
+        if (!error && remoteDiagram) {
+          // Update local storage
+          await db.diagrams.put({
+            id: remoteDiagram.local_id,
+            ...remoteDiagram.content,
+            lastModified: new Date(remoteDiagram.updated_at)
+          });
+  
+          // Load the diagram
+          setDatabase(remoteDiagram.content.database || DB.GENERIC);
+          setId(remoteDiagram.local_id);
+          setGistId(remoteDiagram.content.gistId || "");
+          setLoadedFromGistId(remoteDiagram.content.loadedFromGistId || "");
+          setTitle(remoteDiagram.name);
+          setTables(remoteDiagram.content.tables);
+          setRelationships(remoteDiagram.content.references);
+          setAreas(remoteDiagram.content.areas);
+          setNotes(remoteDiagram.content.notes);
+          setTasks(remoteDiagram.content.todos ?? []);
+          setTransform({
+            pan: remoteDiagram.content.pan,
+            zoom: remoteDiagram.content.zoom,
+          });
+          if (databases[database].hasTypes) {
+            setTypes(remoteDiagram.content.types ?? []);
           }
-        })
-        .catch((error) => {
-          console.log(error);
-        });
+          if (databases[database].hasEnums) {
+            setEnums(remoteDiagram.content.enums ?? []);
+          }
+          window.name = `d ${remoteDiagram.local_id}`;
+          return;
+        }
+  
+        // Fallback to local storage
+        const diagram = await db.diagrams.get(id);
+        if (diagram) {
+          setDatabase(diagram.database || DB.GENERIC);
+          setId(diagram.id);
+          setGistId(diagram.gistId);
+          setLoadedFromGistId(diagram.loadedFromGistId);
+          setTitle(diagram.name);
+          setTables(diagram.tables);
+          setRelationships(diagram.references);
+          setAreas(diagram.areas);
+          setNotes(diagram.notes);
+          setTasks(diagram.todos ?? []);
+          setTransform({
+            pan: diagram.pan,
+            zoom: diagram.zoom,
+          });
+          setUndoStack([]);
+          setRedoStack([]);
+          if (databases[database].hasTypes) {
+            setTypes(diagram.types ?? []);
+          }
+          if (databases[database].hasEnums) {
+            setEnums(diagram.enums ?? []);
+          }
+          window.name = `d ${diagram.id}`;
+        } else {
+          window.name = "";
+          Toast.error(t("didnt_find_diagram"));
+        }
+      } catch (error) {
+        console.error('Error loading diagram:', error);
+        Toast.error(t("didnt_find_diagram"));
+      }
     };
-
+  
     const loadTemplate = async (id) => {
       await db.templates
         .get(id)
@@ -282,7 +645,8 @@ export default function WorkSpace() {
           if (selectedDb === "") setShowSelectDbModal(true);
         });
     };
-
+  
+    // Initial load based on window.name
     if (window.name === "") {
       loadLatestDiagram();
     } else {
